@@ -27,6 +27,10 @@ env:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     defaults:
       run:
         working-directory: terraform
@@ -39,6 +43,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::523115032266:role/nyc-taxi-github-actions
           aws-region: us-east-1
+          audience: sts.amazonaws.com
 
       - name: Setup Python
         uses: actions/setup-python@v5

@@ -1,3 +1,14 @@
+variable "github_oidc_sub_patterns" {
+  description = "IAM StringLike patterns for GitHub OIDC sub claims. Use repo:OWNER/REPO:* so workflow_dispatch, tags, and custom subject claims still match."
+  type        = list(string)
+  default = [
+    "repo:talktoarnab/nyc_taxi:*",
+    "repo:talktoarnab/NYC_Taxi:*",
+    "repo:talktoarnab/nyc-taxi:*",
+    "repo:talktoarnab/NYC-Taxi:*",
+  ]
+}
+
 variable "attach_deployer_user_policies" {
   description = "Attach Glue/Athena/EventBridge/Logs managed policies to deployer_iam_user via Terraform."
   type        = bool
