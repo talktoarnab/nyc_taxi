@@ -1,3 +1,27 @@
+variable "attach_deployer_user_policies" {
+  description = "Attach Glue/Athena/EventBridge/Logs managed policies to deployer_iam_user via Terraform."
+  type        = bool
+  default     = true
+}
+
+variable "deployer_iam_user" {
+  description = "IAM user that runs terraform locally (lamba-cli-access in this account)."
+  type        = string
+  default     = "lamba-cli-access"
+}
+
+variable "github_owner" {
+  description = "GitHub org or user that hosts this repo (OIDC trust)."
+  type        = string
+  default     = "talktoarnab"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (OIDC trust)."
+  type        = string
+  default     = "nyc_taxi"
+}
+
 variable "aws_region" {
   description = "AWS region for the datalake. The architectural guide uses us-east-1 (TLC public dataset lives there)."
   type        = string

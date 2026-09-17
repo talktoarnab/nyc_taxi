@@ -2,6 +2,11 @@ resource "aws_glue_catalog_database" "nyc_taxi" {
   count       = var.enable_analytics ? 1 : 0
   name        = "nyc_taxi"
   description = "NYC Yellow Taxi lakehouse catalog (Athena partition projection)."
+
+  depends_on = [
+    aws_iam_user_policy_attachment.deployer,
+    time_sleep.iam_propagation,
+  ]
 }
 
 resource "aws_athena_workgroup" "nyc_taxi" {
@@ -9,6 +14,11 @@ resource "aws_athena_workgroup" "nyc_taxi" {
   name          = local.name_prefix
   description   = "Workgroup for NYC Yellow Taxi lakehouse queries."
   force_destroy = true
+
+  depends_on = [
+    aws_iam_user_policy_attachment.deployer,
+    time_sleep.iam_propagation,
+  ]
 
   configuration {
     enforce_workgroup_configuration    = true

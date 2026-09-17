@@ -37,5 +37,10 @@ resource "aws_glue_job" "backfill" {
     max_concurrent_runs = 1
   }
 
-  depends_on = [aws_s3_object.glue_script, aws_iam_role_policy.glue]
+  depends_on = [
+    aws_s3_object.glue_script,
+    aws_iam_role_policy.glue,
+    aws_iam_user_policy_attachment.deployer,
+    time_sleep.iam_propagation,
+  ]
 }

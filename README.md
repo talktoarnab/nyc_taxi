@@ -33,32 +33,43 @@ Source files are the public TLC Yellow Taxi monthly Parquet objects:
 
 This stack defaults to **us-east-1** (TLC + the guide). Pass another region in `terraform.tfvars` if you want the lake elsewhere.
 
-## IAM on the deploying user
+## IAM (via Terraform)
 
-`terraform apply` needs more than S3 + Lambda. If the CLI user is `lamba-cli-access`-style (Lambda/S3/IAM only), attach these AWS managed policies first, then set `enable_analytics = true` and re-apply:
+The CLI user `lamba-cli-access` starts with S3/Lambda/IAM only. **Do not attach Glue/Athena policies by hand.** `terraform apply` attaches:
 
-```bash
-aws iam attach-user-policy --user-name lamba-cli-access --policy-arn arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
-aws iam attach-user-policy --user-name lamba-cli-access --policy-arn arn:aws:iam::aws:policy/AmazonAthenaFullAccess
-aws iam attach-user-policy --user-name lamba-cli-access --policy-arn arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
-aws iam attach-user-policy --user-name lamba-cli-access --policy-arn arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-```
+- `AWSGlueConsoleFullAccess`
+- `AmazonAthenaFullAccess`
+- `AmazonEventBridgeFullAccess`
+- `CloudWatchLogsFullAccess`
 
-Without Glue/Athena, keep `enable_analytics = false`. The lake, IAM roles, and DuckDB Lambdas still deploy. The Glue job and `yellow_taxi_trips` table are skipped until you flip the flag.
+to `lamba-cli-access`, waits 30 seconds, then creates Glue, Athena, and EventBridge.
 
-This account's Lambda memory quota is **3008 MB** (set in `terraform.tfvars`). EventBridge `events:PutRule` is also missing on `lamba-cli-access`, so `enable_monthly_schedule` is false until `AmazonEventBridgeFullAccess` is attached. Monthly loads still work by invoking `nyc-taxi-ingest` directly.
+The same apply creates GitHub Actions role `nyc-taxi-github-actions`, trusted via the account’s existing GitHub OIDC provider for `talktoarnab/nyc_taxi`.
 
-## Deploy
+Lambda memory is capped at **3008 MB** on this account.
+
+## Deploy locally (first time)
+
+State lives in S3 (`terraform/backend.hcl`). From the repo root:
 
 ```bash
 cd terraform
-cp terraform.tfvars.example terraform.tfvars   # edit if needed
-cd ..
-make plan
-make apply
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
 ```
 
-`make apply` packages DuckDB for `linux/arm64` then applies. Glue is **created but not started**.
+Or `make init` then `make apply`. Glue is **created but not started**.
+
+## Deploy from GitHub Actions
+
+Workflow: `.github/workflows/terraform.yml`
+
+- **Pull request** — `terraform plan`
+- **Push to `main`** — `plan` then `apply`
+- **Run workflow** — choose plan or apply
+
+It assumes `arn:aws:iam::523115032266:role/nyc-taxi-github-actions` (OIDC, no AWS access keys in GitHub). After the first local apply that creates that role, later applies can run from Actions.
 
 ## Load data
 

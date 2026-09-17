@@ -4,7 +4,7 @@ package:
 	bash scripts/package_lambda.sh
 
 init:
-	cd terraform && terraform init
+	cd terraform && terraform init -backend-config=backend.hcl
 
 plan: package
 	cd terraform && terraform plan -out=tfplan

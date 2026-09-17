@@ -14,7 +14,13 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
+
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -24,11 +30,4 @@ provider "aws" {
   default_tags {
     tags = var.tags
   }
-}
-
-# EventBridge PutRule + default_tags requires events:TagResource.
-provider "aws" {
-  alias   = "notags"
-  region  = var.aws_region
-  profile = var.aws_profile == "" ? null : var.aws_profile
 }

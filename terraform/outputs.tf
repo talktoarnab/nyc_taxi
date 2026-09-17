@@ -1,3 +1,8 @@
+output "github_actions_role_arn" {
+  description = "OIDC role assumed by GitHub Actions. Hardcoded in .github/workflows/terraform.yml."
+  value       = aws_iam_role.github_actions.arn
+}
+
 output "account_id" {
   value = local.account_id
 }
@@ -37,7 +42,7 @@ output "athena_workgroup" {
 
 output "start_backfill_command" {
   description = "Start the Glue historical backfill (does not run on terraform apply)."
-  value       = var.enable_analytics ? "aws glue start-job-run --job-name ${aws_glue_job.backfill[0].name} --region ${var.aws_region}" : "Set enable_analytics = true after attaching Glue/Athena IAM policies, then re-apply."
+  value       = var.enable_analytics ? "aws glue start-job-run --job-name ${aws_glue_job.backfill[0].name} --region ${var.aws_region}" : "enable_analytics is false"
 }
 
 output "ingest_one_month_command" {
@@ -46,5 +51,5 @@ output "ingest_one_month_command" {
 }
 
 output "athena_query_command" {
-  value = var.enable_analytics ? "aws athena start-query-execution --work-group ${aws_athena_workgroup.nyc_taxi[0].name} --query-string 'SELECT year, month, count(*) AS trips FROM nyc_taxi.yellow_taxi_trips GROUP BY 1,2 ORDER BY 1,2' --region ${var.aws_region}" : "Set enable_analytics = true after attaching Glue/Athena IAM policies, then re-apply."
+  value = var.enable_analytics ? "aws athena start-query-execution --work-group ${aws_athena_workgroup.nyc_taxi[0].name} --query-string 'SELECT year, month, count(*) AS trips FROM nyc_taxi.yellow_taxi_trips WHERE year = 2024 AND month = 1 GROUP BY 1, 2' --region ${var.aws_region}" : "enable_analytics is false"
 }
