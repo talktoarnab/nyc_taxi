@@ -1,0 +1,9 @@
+aws_region               = "us-east-1"
+enable_monthly_schedule  = true
+enable_analytics         = true
+enable_http_ingest       = true
+backfill_start_year      = 2014
+backfill_end_year        = 2026
+glue_number_of_workers   = 10
+glue_execution_class     = "FLEX"
+transform_memory_mb      = 3008
