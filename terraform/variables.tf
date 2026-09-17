@@ -6,6 +6,10 @@ variable "github_oidc_sub_patterns" {
     "repo:talktoarnab/NYC_Taxi:*",
     "repo:talktoarnab/nyc-taxi:*",
     "repo:talktoarnab/NYC-Taxi:*",
+    "repo:talktoarnab@*/nyc_taxi@*:*",
+    "repo:talktoarnab@*/NYC_Taxi@*:*",
+    "repo:talktoarnab@*/nyc-taxi@*:*",
+    "repo:talktoarnab@*/NYC-Taxi@*:*",
   ]
 }
 
