@@ -157,40 +157,84 @@ def canonicalize(df: DataFrame) -> DataFrame:
     return df.select(*exprs)
 
 
-def read_source() -> DataFrame:
+def s3_file_exists(path: str) -> bool:
+    """Check if an S3 file exists."""
+    s3 = boto3.client("s3")
+    if not path.startswith("s3://"):
+        return False
+    parts = path[5:].split("/", 1)
+    bucket = parts[0]
+    key = parts[1] if len(parts) > 1 else ""
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        return True
+    except Exception:
+        return False
+
+
+def delete_processed_data():
+    """Delete all objects under the processed prefix in S3 to ensure a clean backfill."""
+    s3 = boto3.client("s3")
+    prefix = "processed/yellow_taxi/"
+    print(f"Deleting existing processed data under s3://{DATALAKE_BUCKET}/{prefix}...")
+    
+    paginator = s3.get_paginator("list_objects_v2")
+    pages = paginator.paginate(Bucket=DATALAKE_BUCKET, Prefix=prefix)
+    
+    delete_batch = []
+    for page in pages:
+        for obj in page.get("Contents", []):
+            delete_batch.append({"Key": obj["Key"]})
+            if len(delete_batch) == 1000:
+                s3.delete_objects(Bucket=DATALAKE_BUCKET, Delete={"Objects": delete_batch})
+                delete_batch = []
+                
+    if delete_batch:
+        s3.delete_objects(Bucket=DATALAKE_BUCKET, Delete={"Objects": delete_batch})
+    print("Processed data deletion complete.")
+
+
+if ENABLE_HTTP_INGEST:
+    ingest_http_to_raw()
+
+delete_processed_data()
+
+pairs = list(month_keys(START_YEAR, END_YEAR))
+print(f"Processing {len(pairs)} months from {START_YEAR} to {END_YEAR}...")
+
+for year, month in pairs:
+    name = tlc_filename(year, month)
     if ENABLE_HTTP_INGEST:
-        ingest_http_to_raw()
-        path = RAW_URI
-        print(f"Reading ingested raw files from {path}")
+        path = f"s3://{DATALAKE_BUCKET}/{RAW_PREFIX}{name}"
     else:
-        path = SOURCE_PATH
-        print(f"Reading source parquet from {path}")
+        path = f"{SOURCE_PATH}{name}"
 
-    return (
-        spark.read.option("mergeSchema", "true")
-        .option("recursiveFileLookup", "true")
-        .parquet(path)
-    )
+    if not s3_file_exists(path):
+        print(f"File does not exist, skipping: {path}")
+        continue
 
-
-df_raw = read_source()
-df_canon = canonicalize(df_raw).filter(F.col("tpep_pickup_datetime").isNotNull())
-
-df_partitioned = (
-    df_canon.withColumn("year", F.lpad(F.year("tpep_pickup_datetime").cast("string"), 4, "0"))
-    .withColumn("month", F.lpad(F.month("tpep_pickup_datetime").cast("string"), 2, "0"))
-    .filter(
-        (F.col("year").cast("int") >= START_YEAR) & (F.col("year").cast("int") <= END_YEAR)
-    )
-)
-
-print("Writing partitioned Parquet to", PROCESSED_URI)
-(
-    df_partitioned.write.mode("overwrite")
-    .option("compression", "snappy")
-    .partitionBy("year", "month")
-    .parquet(PROCESSED_URI)
-)
+    print(f"Processing {name} from {path}...")
+    try:
+        df = spark.read.parquet(path)
+        df_canon = canonicalize(df).filter(F.col("tpep_pickup_datetime").isNotNull())
+        
+        df_partitioned = (
+            df_canon.withColumn("year", F.lpad(F.year("tpep_pickup_datetime").cast("string"), 4, "0"))
+            .withColumn("month", F.lpad(F.month("tpep_pickup_datetime").cast("string"), 2, "0"))
+            .filter(
+                (F.col("year").cast("int") == year) & (F.col("month").cast("int") == month)
+            )
+        )
+        
+        (
+            df_partitioned.write.mode("append")
+            .option("compression", "snappy")
+            .partitionBy("year", "month")
+            .parquet(PROCESSED_URI)
+        )
+        print(f"SUCCESS: Processed and wrote {name}")
+    except Exception as exc:
+        print(f"ERROR processing {name}: {exc}")
 
 job.commit()
 print("Backfill job committed")
